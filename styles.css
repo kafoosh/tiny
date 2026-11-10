@@ -1,0 +1,287 @@
+@font-face {
+  font-family: "Gochi Hand";
+  src: url("fonts/GochiHand-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --ink: #1C1B19;
+  --white: #FFFDF8;
+  --orange: #EE7D2B;
+  --purple: #B6A2E8;
+  --yellow: #F4C740;
+  --paper: #FBF6EA;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --btn: 46px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--paper);
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+}
+
+[hidden] { display: none !important; }
+
+canvas#paper, canvas#ink, canvas#stage {
+  position: fixed;
+  left: 0;
+  width: 100%;
+  display: block;
+  touch-action: none;
+}
+#paper { top: 0; height: 100dvh; pointer-events: none; }
+/* The drawing and the stage share one coordinate space, so the figure comes to life exactly
+   where it was drawn. */
+#ink, #stage { top: var(--sat); height: calc(100dvh - var(--sat)); }
+#ink { pointer-events: none; visibility: hidden; }
+body.drawing #ink { pointer-events: auto; visibility: visible; }
+#stage { visibility: hidden; }
+body.live #stage { visibility: visible; }
+
+#safe-probe {
+  position: fixed;
+  visibility: hidden;
+  pointer-events: none;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- stickers: colour fill, 2px ink border, and a HARD ink copy nudged down-left.
+        Never a blur or a shadow. Pressing slides the face onto its backdrop. ---- */
+
+.sticker, .pill {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  display: grid;
+  position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
+  --off: 4px;
+}
+.sticker:focus, .pill:focus { outline: none; }
+.sticker:focus-visible .sticker-face, .pill:focus-visible .sticker-face { outline: 2px solid var(--orange); outline-offset: 3px; }
+.sticker-back, .sticker-face { grid-area: 1 / 1; }
+.sticker-back { background: var(--ink); transform: translate(calc(var(--off) * -1), var(--off)); }
+.sticker-face {
+  position: relative;
+  z-index: 1;
+  background: var(--fill, var(--white));
+  box-shadow: inset 0 0 0 2px var(--ink);
+  display: grid;
+  place-items: center;
+  transition: transform 180ms cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+.sticker:active > .sticker-face, .pill:active > .sticker-face {
+  transform: translate(calc(var(--off) * -0.75), calc(var(--off) * 0.75));
+}
+
+.sticker { width: var(--btn); height: var(--btn); }
+.sticker > .sticker-back, .sticker > .sticker-face { border-radius: 50%; }
+.sticker svg { width: 52%; height: 52%; overflow: visible; }
+.sticker.swatch > .sticker-face { background: var(--c); }
+.sticker.swatch.sel > .sticker-face { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 6px var(--white); }
+
+.pill > .sticker-back, .pill > .sticker-face { border-radius: 999px; }
+.pill > .sticker-face {
+  padding: 15px 26px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+/* ---- toolbar ---- */
+
+#toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: calc(var(--sat) + 10px) 14px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 10;
+}
+#toolbar > * { pointer-events: auto; }
+
+#ribbon { display: grid; transform: rotate(-1.5deg); --off: 3px; pointer-events: none; }
+#ribbon > .sticker-back, #ribbon > .sticker-face { border-radius: 8px; }
+#ribbon > .sticker-face {
+  background: var(--yellow);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+body.live #ribbon { display: none; }
+
+.row { width: 100%; max-width: 420px; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+#draw-row { display: none; }
+body.drawing #draw-row { display: flex; }
+
+#hint {
+  min-height: 30px;
+  max-width: 92vw;
+  font-family: "Gochi Hand", ui-rounded, system-ui, sans-serif;
+  font-size: 24px;
+  line-height: 1.15;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px) rotate(-1deg);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+#hint.show { opacity: 0.85; transform: translateY(0) rotate(-1deg); }
+
+/* ---- role screen ---- */
+
+#roles {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  z-index: 5;
+}
+body.role #roles { display: flex; }
+#roles .pill > .sticker-face { padding: 20px 30px; font-size: 18px; }
+#roles .pill:nth-child(1) { transform: rotate(-2deg); }
+#roles .pill:nth-child(2) { transform: rotate(1.5deg); }
+.note {
+  margin: 8px 0 0;
+  font-family: "Gochi Hand", ui-rounded, system-ui, sans-serif;
+  font-size: 22px;
+  line-height: 1.2;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* ---- the one big action button, under the figure's feet ---- */
+
+#action {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sab) + 26px);
+  transform: translateX(-50%) rotate(-1.5deg);
+  z-index: 12;
+  --fill: var(--yellow);
+}
+#action > .sticker-face { padding: 16px 30px; font-size: 18px; }
+
+/* ---- the spread deck: pick a card or write a word ---- */
+
+#picker {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--sat) + 10px) 10px calc(var(--sab) + 10px);
+  gap: 10px;
+  animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.tabs { display: flex; gap: 8px; }
+.tab {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+  background: var(--white);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tab.on { background: var(--yellow); box-shadow: inset 0 0 0 2px var(--ink), -3px 3px 0 0 var(--ink); }
+#card-grid { flex: 1; width: 100%; max-width: 460px; min-height: 0; touch-action: manipulation; cursor: pointer; }
+#word-pane { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; width: 100%; padding-bottom: 20vh; }
+.slip {
+  display: block;
+  width: min(86vw, 360px);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--ink), -4px 4px 0 0 var(--ink);
+  transform: rotate(-1.5deg);
+  padding: 18px 14px 12px;
+}
+#word-input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: "Gochi Hand", ui-rounded, system-ui, sans-serif;
+  font-size: 36px;
+  text-align: center;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+#word-input::placeholder { color: var(--ink); opacity: 0.25; }
+
+/* ---- bits ---- */
+
+#corner { position: fixed; top: 0; left: 0; width: 64px; height: calc(var(--sat) + 64px); z-index: 11; }
+body:not(.live) #corner { display: none; }
+
+#toast {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--sat) + 120px);
+  z-index: 40;
+  transform: translateX(-50%) translateY(-6px) rotate(-1deg);
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 2px var(--ink), -3px 3px 0 0 var(--ink);
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  max-width: 88vw;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0) rotate(-1deg); }
+
+#meter { position: fixed; left: 8px; right: 8px; bottom: calc(var(--sab) + 4px); width: calc(100% - 16px); height: 70px; z-index: 50; pointer-events: none; opacity: 0.85; }
