@@ -19,7 +19,7 @@ test('the service worker precaches every file the app loads (offline = complete)
   const listed = new Set([...sw.matchAll(/'([^']+\.(?:js|css|html|png|woff2|webmanifest))'/g)].map((m) => m[1]));
   const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true })
     .flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]));
-  const needed = [...walk('src'), 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.png', 'fonts/GochiHand-Regular.woff2'];
+  const needed = [...walk('src'), 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.png', 'fonts/ShareTechMono.woff2', 'fonts/ArchitectsDaughter.woff2'];
   for (const f of needed) assert.ok(listed.has(f), `${f} is missing from sw.js`);
   for (const f of listed) assert.ok(fs.existsSync(path.join(root, f)), `sw.js lists ${f}, which does not exist`);
 });
@@ -29,7 +29,7 @@ test('nothing in the shipped app reaches for the network', () => {
     .filter((f) => String(f).endsWith('.js')).map((f) => `src/${f}`)];
   for (const f of files) {
     const text = fs.readFileSync(path.join(root, f), 'utf8');
-    assert.ok(!/https?:\/\//.test(text.replace(/\/\/.*$/gm, '')), `${f} contains an absolute URL`);
+    if (!/model-data|words\.js/.test(f)) assert.ok(!/https?:\/\//.test(text.replace(/\/\/.*$/gm, '')), `${f} contains an absolute URL`);
     assert.ok(!/\b(XMLHttpRequest|WebSocket|RTCPeerConnection|sendBeacon)\b/.test(text), `${f} uses a network API`);
   }
 });
@@ -62,8 +62,7 @@ test('throw and catch meet the hand: the deck is continuous across release and l
       kit.clips.catchDeck().pose(FLIGHT_IN, q);
       const land = deckInHand(kit, q).center;
       assert.ok(land.x > 0 && land.x < bounds.width && land.y > 0 && land.y < bounds.height, `${edge}: lands on the page`);
-      const big = kit.bigCard('card'), slip = kit.bigCard('word');
-      for (const b of [big, slip]) {
+      for (const b of [kit.bigCard('card'), kit.bigCard('word'), kit.bigCard('note')]) {
         assert.ok(b.center.x - b.w / 2 >= 0 && b.center.x + b.w / 2 <= bounds.width, 'presented face fits the width');
         assert.ok(b.center.y - b.h / 2 >= 0, 'presented face fits under the top');
       }

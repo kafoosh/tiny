@@ -2,62 +2,87 @@
 
 A two-phone magic trick that runs in the browser.
 
-Two people open the same page. Each draws a little figure. The figures come to life, chirp
-at each other, and the magician's figure throws a deck of cards off the edge of its screen;
-it lands on the spectator's phone, where their figure catches it. The spectator picks any
-card (or writes any word), the figure shuffles it into the deck and throws the deck back,
-and the magician's figure finds it.
+Two people open the same page. Each draws a little figure and says hello to it; it wakes up
+and waves. A quiet tune starts. The magician's figure throws a deck of cards off the edge
+of its screen; it lands on the spectator's phone, where their figure catches it. The
+spectator writes any word, or draws any card, by hand. The figure shuffles the slip into
+the deck and throws the deck back, and the magician's figure finds it and types it out.
 
 It needs no internet once the page has loaded: put both phones in airplane mode and it
 still works.
 
 ## Performing it
 
-1. Both phones open the site. Magician taps **I'm the magician**, spectator taps
-   **I'm the spectator**.
-2. Each draws a figure and taps the orange ✓. The first time, the browser asks for the
-   microphone ("so your little guy can hear its friend"). Any drawing works; something
-   that isn't a figure just moves as one piece.
+1. Both phones open the site. Magician taps **The Magician**, spectator **The Spectator**.
+2. Each draws a figure and taps the yellow ✓. The screen says *say hello to your creation!*
+   and the browser asks for the microphone. Say hello (any sound will do; a tap works too)
+   and the figure waves back. Any drawing works; something that isn't a figure just moves
+   as one piece.
 3. Lay the phones side by side, magician's on the left. (The arrow button in the drawing
    toolbar changes which edge the other phone is past: right, left, or top-to-top.)
-4. Magician taps their figure: it says hello, the other one waves back, and a deck appears.
-5. **THROW!** The deck flies across. The spectator picks a card or writes a word, watches
-   it get shuffled away, and taps **THROW IT BACK!**
-6. The magician's figure catches the deck, has a think, and pulls out the selection.
+4. Magician taps their figure. The tune's chimes sparkle, the other figure waves, the
+   spectator's phone joins the tune in time, and a deck appears.
+5. **THROW**. The deck flies across. The spectator writes a word or draws a card (a value
+   and a suit, like 7♥), taps **INTO THE DECK**, watches it get shuffled away, and taps
+   **THROW IT BACK**.
+6. The magician's figure catches the deck, has a think, and pulls out the selection, typed.
 
-If a phone misses its cue the figure just calls out again (up to four times). After that,
-tap the page to try again. Double-tapping the top-left corner forces the next step on that
-phone (the spectator's catch, or skipping the hello).
+If a phone misses its cue it tries again by itself (up to four times). After that, tap the
+page to try again. Double-tapping the top-left corner forces the next step on that phone
+(the spectator's catch, or skipping the hello between phones).
 
-Keep the phones within about half a metre, speakers unobstructed, volume up, and silent
-mode off.
+Keep the phones within about half a metre, speakers unobstructed and volume up.
+
+Ask the spectator to print clearly and fairly large, on one line. The reading is never
+shown to them, so a misread only shows up at the reveal. See "Not yet proven" below.
 
 ## How it works
 
-The chirping is a data link.
+**The sound.** The tune is cover for a data link.
 
-- Each "sentence" is a frame of 50 ms notes, 16 possible pitches per note (4 bits), sent in
-  two bands at once: **17.6-19.4 kHz**, which most adults can't hear, and **2.2-4.3 kHz**,
-  the audible voice.
-- First try, the data rides only in the inaudible band and the audible voice is a random
-  melody. If the other phone doesn't answer, the figure says it again with the data in the
-  audible notes too, and the pair stay in that mode. Some phones can't play or record
-  near-ultrasound; this is what keeps the trick working on them.
-- Frames carry a type, a sequence number and a CRC-16, and every one is acknowledged. A card
+- A soft four-bar loop plays under everything. It is kept low and filtered so it stays out
+  of the way of the data.
+- Each message is a run of 75 ms symbols (a 32nd note at the tune's tempo), four bits each,
+  sent two ways at once: as one of 16 tones at **17.6-19.2 kHz**, which most adults can't
+  hear, and as a two-note **chime chord** in the tune's own pentatonic scale, which sounds
+  like a glockenspiel flourish on the beat. A phone that can't do ultrasound still gets it
+  from the chimes.
+- Messages carry a type, a sequence number and a CRC-16, and each is acknowledged. A card
   is one byte; a word is up to 16 characters at 5 bits each.
-- Both phones know the instant a frame ends, so the throw is released, and the catch begins,
-  a fixed beat after it. No clocks are shared.
+- Both phones know the instant a message ends, so the throw is released, and the catch
+  begins, a fixed beat after it. The same instant is how the second phone locks its copy of
+  the tune to the first.
+- "Say hello to your creation" is how the microphone gets switched on. The figure reacts to
+  any sound louder than the room.
+
+Audio start-up and recovery (waking audio on every tap, claiming the iOS audio session,
+resuming after the phone pauses it) follow `kafoosh/play`.
+
+**The handwriting.** It is read on the spectator's phone, offline.
+
+- Strokes are grouped into characters (touching or overlapping strokes belong together; a
+  wide gap is a space).
+- Each character is drawn into a 28×28 picture and classified by a small neural network
+  (about 100 KB) trained on the EMNIST handwriting set plus synthetic card suits.
+- A suit symbol next to one or two characters makes it a card. Otherwise it is a word, and
+  if a dictionary word explains the ink nearly as well as the raw reading, the dictionary
+  word wins.
 
 Code map:
 
 | Path | What |
 |---|---|
 | `src/audio/codec.js` | Modulator and streaming demodulator (pure JS, tested in Node) |
-| `src/audio/modem.js`, `rx-worklet.js` | Speaker + microphone via Web Audio |
+| `src/audio/music.js` | The background tune and its beat grid |
+| `src/audio/engine.js` | The AudioContext and its life cycle |
+| `src/audio/modem.js`, `rx-worklet.js` | Microphone, voice detection, decoding |
 | `src/link/protocol.js` | Messages, ACK/retry, card and word packing |
 | `src/link/loopback.js` | Test-only transport between two tabs (`?link=loopback`) |
-| `src/rig/`, `src/drawing.js`, `src/reveal.js`, `src/anim/sketchInk.js` | Drawing, auto-rigging and sketch rendering, from `kafoosh/psychic-bassoon` |
-| `src/anim/actor.js`, `src/anim/routines/` | Clip player and the clips (wake, wave, throw, catch, shuffle, reveal) |
+| `src/hand/` | Stroke grouping, rasteriser, network, word list, reader |
+| `tools/train-recogniser.py` | Trains the network and writes `src/hand/model-data.js` |
+| `src/rig/`, `src/drawing.js` | Drawing and auto-rigging, from `kafoosh/psychic-bassoon` |
+| `src/anim/` | Clip player and the clips (wake, wave, throw, catch, shuffle, reveal) |
+| `src/faces.js`, `src/cards.js` | Typed card faces, word strips, the deck |
 | `src/main.js` | The routine itself |
 | `sw.js` | Offline cache |
 
@@ -70,19 +95,21 @@ npm start
 then open `http://localhost:8000`. The microphone only works on `https://` or `localhost`,
 so to try it on two phones, deploy it (below) or serve it over HTTPS.
 
-To watch the whole routine on one computer without any sound, open
-`http://localhost:8000/?link=loopback` in two tabs of the same browser.
+To watch the whole routine on one computer, open `http://localhost:8000/?link=loopback` in
+two tabs of the same browser. The tabs talk to each other directly instead of through the
+air (you still hear the tune and the chimes).
 
-Other URL switches: `?debug=1` shows live per-tone levels (purple = ultrasonic, orange =
-audible); `?edge=left|right|top` sets the layout; `?link=loopback&noultra=1` and `&drop=1`
-simulate a phone without ultrasound and a lost message.
+Other URL switches: `?debug=1` shows live per-tone levels (blue = ultrasonic, yellow =
+chimes); `?edge=left|right|top` sets the layout; `?link=loopback&drop=1` simulates a lost
+message.
 
 ```bash
 npm test
 ```
 
-runs the codec through a simulated noisy, echoing room, the protocol's retry logic, and the
-figure-rigging regression suite.
+runs the codec through a simulated noisy, echoing room (including the phone's own music in
+its microphone), the protocol's retry logic, the handwriting reader on synthetic handwriting,
+and the figure-rigging regression suite.
 
 ## Deploying
 
@@ -91,14 +118,33 @@ figure-rigging regression suite.
 
 ## Not yet proven
 
-The audio link is verified in Node against simulated rooms and in headless Chromium against
-recorded chirps fed to the microphone. It has **not** been tried on physical phones. Expect
-to tune on real hardware, particularly:
+Nothing here has been tried on physical phones or with real people's handwriting.
+
+**Audio** is verified in Node against simulated rooms and in headless Chromium against
+recordings fed to the microphone. Expect to tune on real hardware, particularly:
 
 - iOS Safari, which can lower or reroute speaker output while the microphone is open;
 - how far apart the phones can be, and how loud a room it survives;
 - whether the ultrasonic band is audible as a faint whine to younger spectators.
 
-`icon.png` is a placeholder borrowed from the app the figure code came from.
+**Handwriting** is the bigger risk, because the spectator never sees what was read:
 
-Font: Gochi Hand (SIL OFL 1.1, see `fonts/OFL.txt`).
+- On the EMNIST test set the network gets single letters right about 94% of the time and
+  card values about 99%. In simulation with those letters, dictionary words come out right
+  about 98% of the time; names and unusual words only about half the time.
+- The tests here use a stroke font with wobble as stand-in handwriting, which is much
+  tidier than a real person's.
+- Joined-up writing, letters that touch each other, writing on more than one line, and
+  numbers inside a word are not handled.
+
+If misreads turn out to be common in practice, the least intrusive fix is a quiet read-back
+on the spectator's phone before the slip goes into the deck.
+
+## Credits
+
+- Fonts: Share Tech Mono and Architects Daughter (SIL OFL 1.1, licences in `fonts/`).
+- Handwriting data: EMNIST Balanced (Cohen, Afshar, Tapson, van Schaik, 2017).
+- Word list: SCOWL levels 10-35, Copyright 2000-2016 Kevin Atkinson, via `wordlist-english`.
+- Test fixture stroke font: Hershey Simplex (public domain), via `hersheytext`.
+
+`icon.png` is a placeholder borrowed from the app the figure code came from.

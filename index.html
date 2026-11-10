@@ -4,18 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Tiny</title>
-  <meta name="description" content="Draw a little guy. Find a friend.">
-  <meta name="theme-color" content="#FBF6EA">
-  <meta name="color-scheme" content="light">
+  <meta name="description" content="Draw a little figure. Find a friend.">
+  <meta name="theme-color" content="#17335F">
+  <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Tiny">
   <meta name="format-detection" content="telephone=no">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
-  <link rel="preload" href="fonts/GochiHand-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ShareTechMono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ArchitectsDaughter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="role">
@@ -24,39 +25,26 @@
   <canvas id="stage" aria-hidden="true"></canvas>
 
   <header id="toolbar">
-    <div id="ribbon"><span class="sticker-back"></span><span class="sticker-face" id="ribbon-text">WHO ARE YOU?</span></div>
+    <div id="title"><span id="title-text">TINY</span><span id="title-sub">SHEET — OF 2</span></div>
     <div id="draw-row" class="row"></div>
     <div id="hint" role="status" aria-live="polite"></div>
   </header>
 
   <main id="roles">
-    <button class="pill" id="role-magician" type="button" style="--fill: var(--yellow)">
-      <span class="sticker-back"></span><span class="sticker-face">I'M THE MAGICIAN</span>
-    </button>
-    <button class="pill" id="role-spectator" type="button" style="--fill: var(--purple)">
-      <span class="sticker-back"></span><span class="sticker-face">I'M THE SPECTATOR</span>
-    </button>
-    <p class="note">Two phones, side by side.<br>One of each.</p>
+    <button class="btn plate" id="role-magician" type="button"><small>FIG. A</small>THE MAGICIAN</button>
+    <button class="btn plate" id="role-spectator" type="button"><small>FIG. B</small>THE SPECTATOR</button>
+    <p class="note">two phones, side by side — one of each</p>
   </main>
 
-  <button class="pill" id="action" type="button" hidden>
-    <span class="sticker-back"></span><span class="sticker-face" id="action-text"></span>
-  </button>
+  <button class="btn primary" id="action" type="button" hidden></button>
 
-  <section id="picker" hidden aria-label="Choose">
-    <div class="tabs">
-      <button class="tab on" data-tab="card" type="button">PICK A CARD</button>
-      <button class="tab" data-tab="word" type="button">WRITE A WORD</button>
-    </div>
-    <canvas id="card-grid" aria-label="Cards"></canvas>
-    <div id="word-pane" hidden>
-      <label class="slip">
-        <input id="word-input" type="text" maxlength="16" autocomplete="off" autocapitalize="off"
-               autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="any word…">
-      </label>
-      <button class="pill" id="word-ok" type="button" style="--fill: var(--yellow)">
-        <span class="sticker-back"></span><span class="sticker-face">TUCK IT IN THE DECK</span>
-      </button>
+  <section id="pad" hidden aria-label="Write">
+    <p class="note" id="pad-note">write a word, or draw a card like 7♥</p>
+    <canvas id="pad-canvas" aria-label="Writing area"></canvas>
+    <div class="row" id="pad-row">
+      <button class="btn" id="pad-undo" type="button">UNDO</button>
+      <button class="btn" id="pad-clear" type="button">CLEAR</button>
+      <button class="btn primary" id="pad-done" type="button">INTO THE DECK</button>
     </div>
   </section>
 

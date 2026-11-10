@@ -1,10 +1,8 @@
 // The figure on stage: plays clips one after another on the shared clock, blends between
-// them, falls back to an idle loop, and draws the "speech" that streams out of its head
-// while it is talking to the other phone.
+// them, falls back to an idle loop, and bobs along to the background music.
 
 import { worldPoint, copyPose } from '../rig/model.js';
 import { smooth, lerp } from './support.js';
-import { sketch } from './sketchInk.js';
 import { now } from '../clock.js';
 
 const BLEND_MS = 180;
@@ -20,7 +18,7 @@ export class Actor {
     this.current = null;        // { clip, start, resolve }
     this.pending = null;        // { clip, at, resolve } — replaces `current` at `at`
     this.queue = [];
-    this.speech = null;
+    this.beat = null;           // () → phase 0…1 within the music's beat, or -1
     this.lastPose = null;
     this.blendFrom = null;
     this.blendStart = 0;
@@ -57,9 +55,6 @@ export class Actor {
     return new Promise((resolve) => { this.queue.push({ clip, resolve, name }); });
   }
 
-  /// info = { startTime, symbolMs, tones } from a transport's transmit().
-  say(info) { this.speech = info; }
-
   switchTo(entry, startMs) {
     this.current?.resolve(false);
     this.blendFrom = this.lastPose ? copyPose(this.lastPose) : null;
@@ -93,10 +88,11 @@ export class Actor {
 
     let pose = this.kit.base();
     cur.clip.pose(clipT, pose);
-    const speaking = this.speakingAt(t);
-    if (speaking) {                                   // chatter: the head bobs with each note
-      pose.headAngle += 0.07 * Math.sin((t - this.speech.startTime) / this.speech.symbolMs * Math.PI);
-      pose.scaleY *= 1 + 0.012 * Math.sin((t - this.speech.startTime) / this.speech.symbolMs * Math.PI * 2);
+    const beat = this.beat ? this.beat() : -1;         // a little bob in time with the music
+    if (beat >= 0 && !cur.clip.still) {
+      const b = 0.5 - 0.5 * Math.cos(beat * Math.PI * 2);
+      pose.offset.y -= this.kit.propScale * 0.012 * b;
+      pose.headAngle += 0.025 * Math.sin(beat * Math.PI * 2);
     }
     if (this.blendFrom) {
       const u = (t - this.blendStart) / BLEND_MS;
@@ -105,11 +101,6 @@ export class Actor {
     }
     this.lastPose = pose;
     this.draw(pose, cur.clip, clipT, t);
-  }
-
-  speakingAt(t) {
-    const s = this.speech;
-    return !!s && t >= s.startTime && t < s.startTime + s.tones.length * s.symbolMs;
   }
 
   draw(pose, clip, clipT, t) {
@@ -133,35 +124,6 @@ export class Actor {
       ctx.stroke();
     }
     clip.props?.(ctx, clipT, pose);
-    this.drawSpeech(ctx, pose, t);
-  }
-
-  /// Each note the figure "says" pops out by its head as a little dash and drifts toward
-  /// the other phone, higher notes floating higher — a visible stream of chatter.
-  drawSpeech(ctx, pose, t) {
-    const s = this.speech;
-    if (!s) return;
-    const k = this.kit;
-    const life = 520;
-    const total = s.tones.length * s.symbolMs;
-    if (t < s.startTime || t > s.startTime + total + life) { if (t > s.startTime + total + life) this.speech = null; return; }
-    const head = k.head(pose);
-    const r = k.skel.headRadius || k.propScale * 0.15;
-    const up = k.edge === 'top';
-    const first = Math.max(0, Math.floor((t - s.startTime - life) / s.symbolMs));
-    const last = Math.min(s.tones.length - 1, Math.floor((t - s.startTime) / s.symbolMs));
-    for (let i = first; i <= last; i++) {
-      const age = (t - (s.startTime + i * s.symbolMs)) / life;
-      if (age < 0 || age > 1) continue;
-      const tone = s.tones[i] / 15 - 0.5;
-      const travel = r * (1.25 + 2.2 * age);
-      const c = up
-        ? { x: head.x + tone * r * 2.2, y: head.y - travel }
-        : { x: head.x + k.sideSign * travel, y: head.y - r * 0.2 - tone * r * 1.8 - r * 0.5 * age };
-      const len = r * 0.28;
-      const a = up ? { x: c.x, y: c.y - len } : { x: c.x + k.sideSign * len, y: c.y - len * 0.5 };
-      sketch(ctx, [c, a], k.ink, Math.max(2, k.lw * 0.7), { amp: 1, seed: i, opacity: Math.sin(Math.min(1, age * 4) * Math.PI / 2) * (1 - age) });
-    }
   }
 }
 

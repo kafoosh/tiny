@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Link, T, ROLE, encodeSelection, decodeSelection, cleanWord, WORD_MAX } from '../src/link/protocol.js';
 import { frameSymbols, MAX_PAYLOAD } from '../src/audio/codec.js';
-import { SUITS } from '../src/reveal.js';
+import { SUITS } from '../src/faces.js';
 import { now } from '../src/clock.js';
 
 test('every card survives the round trip in one byte', () => {
@@ -28,17 +28,17 @@ test('words survive the round trip and fit one frame', () => {
 });
 
 /// Two transports wired to each other with frame-accurate timing, sped up 10×.
-function pair({ dropFirst = 0, ultraDead = false } = {}) {
+function pair({ dropFirst = 0 } = {}) {
   const mk = () => ({ onFrame: null, sent: [] });
   const a = mk(), b = mk();
   let drops = dropFirst;
   const wire = (from, to) => {
-    from.transmit = async (frame, { voiceData }) => {
+    from.transmit = async (frame, opts) => {
       const dur = frameSymbols(frame).length * 5;
-      const info = { startTime: now(), endTime: now() + dur, symbolMs: 5, tones: [] };
-      from.sent.push({ frame, voiceData });
-      const lost = drops-- > 0 || (ultraDead && !voiceData);
-      if (!lost) setTimeout(() => to.onFrame({ ...frame, band: voiceData && ultraDead ? 'voice' : 'ultra', endTime: info.endTime }), dur + 2);
+      const sent = opts.stamp ? { ...frame, payload: [42, ...frame.payload.slice(1)] } : frame;
+      const info = { frame: sent, startTime: now(), endTime: now() + dur, symbols: [] };
+      from.sent.push({ frame: sent, opts });
+      if (!(drops-- > 0)) setTimeout(() => to.onFrame({ ...sent, band: 'both', endTime: info.endTime }), dur + 2);
       return info;
     };
   };
@@ -57,7 +57,7 @@ test('a message is acknowledged and handled exactly once', async () => {
   assert.equal(tb.sent[0].frame.type, T.ACK);
 });
 
-test('a lost message is said again; the repeat is not handled twice', async () => {
+test('a lost message is sent again; the repeat is not handled twice', async () => {
   const [ta, tb] = pair({ dropFirst: 1 });
   const m = new Link(ta, ROLE.magician), s = new Link(tb, ROLE.spectator);
   let n = 0;
@@ -65,8 +65,15 @@ test('a lost message is said again; the repeat is not handled twice', async () =
   assert.equal(await m.send(T.HELLO), true);
   assert.equal(n, 1);
   assert.equal(ta.sent.length, 2);
-  assert.equal(ta.sent[0].voiceData, false, 'first try: data in ultrasound only');
-  assert.equal(ta.sent[1].voiceData, true, 'retry: data in the audible chirps too');
+});
+
+test('a stamped message carries the music position the transport wrote into it', async () => {
+  const [ta, tb] = pair();
+  const m = new Link(ta, ROLE.magician), s = new Link(tb, ROLE.spectator);
+  const got = [];
+  s.on(T.HELLO, (p) => got.push(p));
+  assert.equal(await m.send(T.HELLO, [0], null, { stamp: true }), true);
+  assert.deepEqual(got, [[42]]);
 });
 
 test('a lost ACK causes a repeat that is re-acknowledged but handled once', async () => {
@@ -79,18 +86,6 @@ test('a lost ACK causes a repeat that is re-acknowledged but handled once', asyn
   assert.equal(await m.send(T.THROW), true);
   assert.equal(n, 1);
   assert.equal(tb.sent.filter((x) => x.frame.type === T.ACK).length, 2);
-});
-
-test('with ultrasound dead, both sides switch to audible data and stay there', async () => {
-  const [ta, tb] = pair({ ultraDead: true });
-  const m = new Link(ta, ROLE.magician), s = new Link(tb, ROLE.spectator);
-  s.on(T.HELLO, () => {}); m.on(T.RETURN, () => {});
-  assert.equal(await m.send(T.HELLO), true);
-  assert.equal(m.voiceData, true);
-  assert.equal(s.voiceData, true);
-  const before = tb.sent.length;
-  assert.equal(await s.send(T.RETURN, [3]), true);
-  assert.equal(tb.sent.length, before + 1, 'no wasted ultrasonic attempt once we know');
 });
 
 test('nobody listening: gives up after four attempts', async () => {

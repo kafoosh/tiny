@@ -1,11 +1,9 @@
-// Doodled cards: backs, a deck with a little thickness, a fan, and faces (a playing card or
-// a slip of paper with a word on it). All drawn in the figure's own pen so they belong to
-// the same sketch.
+// Cards as cut-out white paper on the blueprint: backs, a deck with a little thickness, a
+// fan, typed faces, and the slip the spectator wrote on.
 
-import { rect } from './rig/model.js';
-import { LG, CARD_PAPER } from './palette.js';
-import { sketch, rectPts, roundedRectPath, cardFace } from './anim/sketchInk.js';
-import { drawLooseText } from './reveal.js';
+import { BP } from './palette.js';
+import { line, roundedRectPath, centredRect } from './anim/pen.js';
+import { drawCardFace, drawWordStrip } from './faces.js';
 
 function at(ctx, c, angle, sx, fn) {
   ctx.save();
@@ -16,25 +14,34 @@ function at(ctx, c, angle, sx, fn) {
   ctx.restore();
 }
 
-/// One card back, centred on `c`.
-export function drawBack(ctx, c, w, h, angle, kit, { opacity = 1, seed = 3.1, sx = 1 } = {}) {
+function sheet(ctx, r, radius, opacity) {
+  ctx.save();
+  ctx.globalAlpha *= opacity;
+  roundedRectPath(ctx, r, radius);
+  ctx.fillStyle = BP.paper;
+  ctx.fill();
+  ctx.lineWidth = Math.max(1.2, Math.min(r.width, r.height) * 0.035);
+  ctx.strokeStyle = BP.sheetDeep;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/// One card back, centred on `c`: white paper with a fine blue grid inside a border.
+export function drawBack(ctx, c, w, h, angle, kit, { opacity = 1, sx = 1 } = {}) {
   at(ctx, c, angle, sx, () => {
-    const r = rect(-w / 2, -h / 2, w, h);
+    const r = centredRect(w, h);
+    sheet(ctx, r, w * 0.08, opacity);
+    const ix = w * 0.36, iy = h * 0.4, lw = Math.max(1, w * 0.022);
     ctx.save();
     ctx.globalAlpha *= opacity;
-    roundedRectPath(ctx, r, w * 0.08);
-    ctx.fillStyle = CARD_PAPER;
-    ctx.fill();
+    ctx.strokeStyle = BP.sheet;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.rect(-ix, -iy, ix * 2, iy * 2);
+    for (let i = 1; i < 4; i++) { ctx.moveTo(-ix + (ix * 2 * i) / 4, -iy); ctx.lineTo(-ix + (ix * 2 * i) / 4, iy); }
+    for (let i = 1; i < 6; i++) { ctx.moveTo(-ix, -iy + (iy * 2 * i) / 6); ctx.lineTo(ix, -iy + (iy * 2 * i) / 6); }
+    ctx.stroke();
     ctx.restore();
-    const lw = Math.max(1.5, Math.min(kit.lw, w * 0.07));
-    sketch(ctx, rectPts(r, 3), kit.ink, lw, { closed: true, amp: w * 0.03, seed, opacity });
-    // A scribbled diamond lattice in orange — reads as "card back" at any size.
-    const ix = w * 0.30, iy = h * 0.34;
-    const o = { opacity: opacity * 0.9, amp: w * 0.03, seed: seed + 4 };
-    const thin = Math.max(1.2, lw * 0.6);
-    sketch(ctx, [{ x: 0, y: -iy }, { x: ix, y: 0 }, { x: 0, y: iy }, { x: -ix, y: 0 }], LG.orange, thin, { ...o, closed: true });
-    sketch(ctx, [{ x: -ix * 0.5, y: -iy * 0.5 }, { x: ix * 0.5, y: iy * 0.5 }], LG.orange, thin, o);
-    sketch(ctx, [{ x: ix * 0.5, y: -iy * 0.5 }, { x: -ix * 0.5, y: iy * 0.5 }], LG.orange, thin, o);
   });
 }
 
@@ -43,14 +50,8 @@ export function drawDeck(ctx, c, w, h, angle, kit, { opacity = 1, layers = 3 } =
   const step = Math.max(1.5, w * 0.045);
   at(ctx, c, angle, 1, () => {
     for (let i = layers; i >= 1; i--) {
-      const r = rect(-w / 2 + i * step * 0.6, -h / 2 + i * step, w, h);
-      ctx.save();
-      ctx.globalAlpha *= opacity;
-      roundedRectPath(ctx, r, w * 0.08);
-      ctx.fillStyle = CARD_PAPER;
-      ctx.fill();
-      ctx.restore();
-      sketch(ctx, rectPts(r, 3), kit.ink, Math.max(1.2, kit.lw * 0.6), { closed: true, amp: w * 0.02, seed: 8 + i, opacity });
+      const r = centredRect(w, h);
+      sheet(ctx, { ...r, x: r.x + i * step * 0.6, y: r.y + i * step }, w * 0.08, opacity);
     }
   });
   drawBack(ctx, c, w, h, angle, kit, { opacity });
@@ -60,31 +61,29 @@ export function drawDeck(ctx, c, w, h, angle, kit, { opacity = 1, layers = 3 } =
 export function drawFan(ctx, pivot, w, h, baseAngle, spread, kit, count = 7) {
   for (let i = 0; i < count; i++) {
     const a = baseAngle + (count === 1 ? 0 : (i / (count - 1) - 0.5) * spread);
-    const c = { x: pivot.x + Math.sin(a) * h * 0.5, y: pivot.y - Math.cos(a) * h * 0.5 };
-    drawBack(ctx, c, w, h, a, kit, { seed: 3.1 + i });
+    drawBack(ctx, { x: pivot.x + Math.sin(a) * h * 0.5, y: pivot.y - Math.cos(a) * h * 0.5 }, w, h, a, kit);
   }
 }
 
-/// The chosen thing, face up. `sel` = {kind:'card', value, suit} | {kind:'word', text}.
-export function drawFace(ctx, c, w, h, angle, kit, sel, { sx = 1, opacity = 1 } = {}) {
+/// The chosen thing, face up and typed. `sel` = {kind:'card', value, suit} | {kind:'word', text}.
+export function drawFace(ctx, c, w, h, angle, kit, sel, { sx = 1, opacity = 1, typed = 1 } = {}) {
   at(ctx, c, angle, sx, () => {
-    const r = rect(-w / 2, -h / 2, w, h);
-    const lw = Math.max(1.5, Math.min(kit.lw, Math.min(w, h) * 0.07));
-    if (sel.kind === 'card') {
-      cardFace(ctx, r, opacity, kit.ink, lw, CARD_PAPER, sel);
-      return;
+    if (sel.kind === 'card') drawCardFace(ctx, centredRect(w, h), sel, opacity);
+    else drawWordStrip(ctx, centredRect(w, h), sel.text, opacity, typed);
+  });
+}
+
+/// The slip the spectator wrote on, with their own handwriting on it.
+/// `writing` = { strokes: [{points}], box: {minX, minY, w, h} }.
+export function drawWriting(ctx, c, w, h, angle, kit, writing, { opacity = 1 } = {}) {
+  at(ctx, c, angle, 1, () => {
+    sheet(ctx, centredRect(w, h), h * 0.07, opacity);
+    const b = writing.box, k = Math.min((w * 0.84) / Math.max(b.w, 1), (h * 0.76) / Math.max(b.h, 1));
+    const ox = -(b.minX + b.w / 2) * k, oy = -(b.minY + b.h / 2) * k;
+    for (const s of writing.strokes) {
+      const pts = s.points.length > 1 ? s.points : [s.points[0], { x: s.points[0].x + 0.5, y: s.points[0].y }];
+      line(ctx, pts.map((p) => ({ x: p.x * k + ox, y: p.y * k + oy })), BP.sheetDeep, Math.max(1.2, 5 * k), { opacity });
     }
-    ctx.save();
-    ctx.globalAlpha *= opacity;
-    roundedRectPath(ctx, r, h * 0.08);
-    ctx.fillStyle = CARD_PAPER;
-    ctx.fill();
-    ctx.restore();
-    sketch(ctx, rectPts(r, 4), kit.ink, lw, { closed: true, amp: h * 0.03, seed: 2.2, opacity });
-    ctx.save();
-    ctx.globalAlpha *= opacity;
-    drawLooseText(ctx, sel.text, { x: 0, y: 0 }, h * 0.56, LG.ink, 5.5, w * 0.86);
-    ctx.restore();
   });
 }
 
@@ -95,7 +94,6 @@ export function motionLines(ctx, from, dir, len, kit, opacity) {
   for (let i = -1; i <= 1; i++) {
     const o = { x: from.x + nx * i * len * 0.35, y: from.y + ny * i * len * 0.35 };
     const l = len * (i === 0 ? 1 : 0.6);
-    sketch(ctx, [o, { x: o.x + dir.x * l, y: o.y + dir.y * l }], kit.ink, Math.max(1.5, kit.lw * 0.6),
-      { amp: 1.5, seed: 12 + i, opacity });
+    line(ctx, [o, { x: o.x + dir.x * l, y: o.y + dir.y * l }], BP.cyan, Math.max(1.5, kit.lw * 0.5), { opacity });
   }
 }

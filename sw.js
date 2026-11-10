@@ -2,20 +2,22 @@
 // request is answered from the cache (so the trick works in airplane mode), and refreshed in
 // the background whenever there happens to be a connection.
 
-const CACHE = 'tiny-v1';
+const CACHE = 'tiny-v2';
 const FILES = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest', 'icon.png',
-  'fonts/GochiHand-Regular.woff2',
-  'src/main.js', 'src/clock.js', 'src/palette.js', 'src/backdrop.js', 'src/drawing.js',
-  'src/reveal.js', 'src/cards.js',
+  'fonts/ShareTechMono.woff2', 'fonts/ArchitectsDaughter.woff2',
+  'src/main.js', 'src/clock.js', 'src/palette.js', 'src/drawing.js', 'src/faces.js', 'src/cards.js',
   'src/rig/model.js', 'src/rig/fitter.js', 'src/rig/plausibility.js', 'src/rig/seams.js',
-  'src/anim/actor.js', 'src/anim/setup.js', 'src/anim/support.js', 'src/anim/sketchInk.js',
+  'src/anim/actor.js', 'src/anim/setup.js', 'src/anim/support.js', 'src/anim/pen.js',
   'src/anim/timing.js',
   'src/anim/routines/index.js', 'src/anim/routines/basics.js', 'src/anim/routines/deck.js',
   'src/anim/routines/reveal.js',
-  'src/audio/codec.js', 'src/audio/modem.js', 'src/audio/rx-worklet.js',
+  'src/audio/codec.js', 'src/audio/engine.js', 'src/audio/music.js', 'src/audio/modem.js',
+  'src/audio/rx-worklet.js',
   'src/link/protocol.js', 'src/link/loopback.js',
-  'src/ui/picker.js',
+  'src/hand/read.js', 'src/hand/segment.js', 'src/hand/raster.js', 'src/hand/net.js',
+  'src/hand/model-data.js', 'src/hand/words.js',
+  'src/ui/writepad.js',
 ];
 
 self.addEventListener('install', (e) => {

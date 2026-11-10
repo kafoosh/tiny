@@ -1,21 +1,18 @@
-// LGPalette (LittleGuyChrome.swift) + the shared deterministic wobble `det()`.
+// Blueprint: deep drafting blue, a pale grid, white technical pen, and cut-out white paper
+// for anything that is a card.
 
-export const LG = Object.freeze({
-  ink: '#1C1B19',      // near-black outline + glyph ink
-  white: '#FFFDF8',    // sticker fill
-  orange: '#EE7D2B',   // accent: decorations + Done tick
-  purple: '#B6A2E8',   // undo sticker
-  yellow: '#F4C740',   // ribbon
-  paper: '#FBF6EA',    // cream sketchpad
-  decor: '#EF8326',    // flower/sparkle tint (+ the ruling)
-  decorDeep: '#C75A1E',
+export const BP = Object.freeze({
+  sheet: '#17335F',      // the drawing sheet
+  sheetDeep: '#102648',  // shadows, and ink on white paper
+  line: '#F4F8FF',       // the white pen (default figure ink, borders, labels)
+  cyan: '#7FD3FF',       // construction lines, hints
+  yellow: '#FFD75E',     // the one accent: what to press next
+  coral: '#FF8E7A',      // a warm pen
+  paper: '#F6F9FF',      // cards and slips
+  red: '#D8342C',        // hearts and diamonds on paper
 });
 
-/// The conjured card's paper — `Color(.systemBackground)` in the (light-locked) app.
-export const CARD_PAPER = '#FFFFFF';
+export const PENS = [BP.line, BP.cyan, BP.yellow, BP.coral];
 
-/// Deterministic pseudo-noise in [-0.5, 0.5) keyed on an index (stable per frame).
-export function det(i, seed) {
-  const x = Math.sin(i * 127.1 + seed) * 43758.5453;
-  return (x - Math.floor(x)) - 0.5;
-}
+export const FONT_HAND = '"Architects Daughter"';   // drafting hand: hints and labels
+export const FONT_TYPE = '"Share Tech Mono"';       // typed: the reveal

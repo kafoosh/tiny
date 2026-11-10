@@ -5,7 +5,7 @@
 // The eraser works on the vector strokes: it cuts away the points it passes over and
 // splits a stroke where it was cut, so what is left is still plain polylines for the rig.
 
-import { LG } from './palette.js';
+import { BP } from './palette.js';
 
 export const PEN_WIDTH = 5;
 const ERASER_R = 12;
@@ -22,7 +22,7 @@ export class Drawing {
     this.pointerId = null;
     this.enabled = false;
     this.tool = 'pen';          // pen | eraser
-    this.color = LG.ink;
+    this.color = BP.line;
     this.scale = 1;             // page rescale since the page was cleared (pen width follows)
     this.eraserAt = null;
 

@@ -1,34 +1,33 @@
-// The real transport: speaker + microphone. Wraps the codec in Web Audio.
+// The real transport: speaker + microphone.
 
-import { Demodulator, modulate, frameSymbols, coverSymbols, ultraUsable, SYMBOL_SECONDS } from './codec.js';
+import { Demodulator, modulate, frameSymbols, ultraUsable } from './codec.js';
 import { now } from '../clock.js';
 
 export class AudioTransport {
-  constructor() {
+  constructor(engine) {
+    this.engine = engine;
     this.onFrame = null;
     this.kind = 'audio';
-    this.ctx = null;
     this.demod = null;
     this.base = 0;            // context frame of the demodulator's sample 0
     this.expect = -1;         // next context frame we expect from the tap
     this.inputLatency = 0.02;
+    this.onVoice = null;      // fires once, after listenForVoice(), when someone speaks up
+    this.voice = { armed: false, floor: 0, run: 0 };
   }
 
   /// Must be called from a user gesture (it unlocks audio and asks for the microphone).
   async start() {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC || !navigator.mediaDevices?.getUserMedia) throw new Error('no-audio');
-    const ctx = this.ctx = new AC({ latencyHint: 'interactive' });
-    // iOS: keep the loudspeaker (not the earpiece) while the microphone is open.
-    try { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; } catch { /* optional */ }
-    const resume = ctx.resume();
+    if (!navigator.mediaDevices?.getUserMedia || !this.engine.open({ mic: true })) throw new Error('no-audio');
+    const ctx = this.ctx = this.engine.ctx;
     // The three processing flags are essential: left on, the browser "cleans away" exactly
-    // the tones we are listening for.
+    // the tones we are listening for (and on iOS switches the speaker to a quiet call mode).
     const stream = this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
       video: false,
     });
-    await resume;
+    // The permission prompt often leaves the context paused, and can reset the session.
+    this.engine.unlock();
     const lat = stream.getAudioTracks()[0]?.getSettings?.().latency;
     if (lat > 0 && lat < 0.5) this.inputLatency = lat;
 
@@ -56,8 +55,6 @@ export class AudioTransport {
     src.connect(node);
     node.connect(mute);
     this.node = node; this.src = src;
-
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) ctx.resume(); });
   }
 
   newDemod() {
@@ -70,40 +67,39 @@ export class AudioTransport {
       this.base = frame;
     }
     this.expect = frame + pcm.length;
+    if (this.voice.armed) this.hearVoice(pcm);
     this.demod.push(pcm);
   }
 
-  /// Context time (seconds) → the shared clock, for something happening at the microphone.
-  micTime(ctxSeconds) {
-    return now() - (this.ctx.currentTime - ctxSeconds) * 1000 - this.inputLatency * 1000;
+  /// Start waiting for a voice: not what is said, just that somebody said something.
+  listenForVoice() { this.voice = { armed: true, floor: 0, run: 0, seen: 0 }; }
+
+  /// Loudness against the room's own level: a few batches in a row well above it is speech
+  /// (or a clap, or a laugh — all fine).
+  hearVoice(pcm) {
+    const v = this.voice;
+    let e = 0;
+    for (let i = 0; i < pcm.length; i++) e += pcm[i] * pcm[i];
+    const rms = Math.sqrt(e / pcm.length);
+    v.seen += 1;
+    if (v.seen <= 12) { v.floor += (rms - v.floor) / v.seen; return; }     // learn the room first
+    const loud = rms > Math.max(0.004, v.floor * 3.5);
+    v.run = loud ? v.run + 1 : Math.max(0, v.run - 1);
+    if (!loud) v.floor += (rms - v.floor) * 0.05;
+    if (v.run >= 3) { v.armed = false; this.onVoice?.(); }
   }
 
   deliver(f) {
-    const endTime = this.micTime((this.base + f.endSample) / this.ctx.sampleRate);
+    const ctxSeconds = (this.base + f.endSample) / this.ctx.sampleRate;
+    const endTime = now() - (this.ctx.currentTime - ctxSeconds) * 1000 - this.inputLatency * 1000;
     this.onFrame?.({ ...f, endTime });
   }
 
-  async transmit(frame, { voiceData = false } = {}) {
-    const ctx = this.ctx;
-    if (ctx.state !== 'running') { try { await ctx.resume(); } catch { /* keep going */ } }
-    const sr = ctx.sampleRate;
-    const syms = frameSymbols(frame);
-    const ultra = ultraUsable(sr) ? syms : null;
-    const tones = (voiceData || !ultra) ? syms : coverSymbols(syms.length);
-    const { pcm, lead } = modulate({ ultra, voice: tones }, sr);
-    const buffer = ctx.createBuffer(1, pcm.length, sr);
-    buffer.getChannelData(0).set(pcm);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    const t0 = ctx.currentTime + 0.06;
-    source.start(t0);
-    const outLatency = (ctx.outputLatency || ctx.baseLatency || 0.02) * 1000;
-    const startTime = now() + (t0 - ctx.currentTime) * 1000 + (lead / sr) * 1000 + outLatency;
-    const symbolMs = SYMBOL_SECONDS * 1000;
-    return { startTime, endTime: startTime + syms.length * symbolMs, symbolMs, tones };
+  async transmit(frame, opts = {}) {
+    this.engine.unlock();
+    return this.engine.speak(frame, frameSymbols, modulate, { ...opts, ultra: ultraUsable(this.ctx.sampleRate) });
   }
 
-  /// Latest per-tone levels (ultra 0…15, voice 16…31), for the diagnostics overlay.
+  /// Latest per-tone levels (ultra 0…15, chime 16…23), for the diagnostics overlay.
   levels() { return this.demod ? this.demod.levels : null; }
 }

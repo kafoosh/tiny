@@ -1,22 +1,30 @@
 @font-face {
-  font-family: "Gochi Hand";
-  src: url("fonts/GochiHand-Regular.woff2") format("woff2");
+  font-family: "Share Tech Mono";
+  src: url("fonts/ShareTechMono.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Architects Daughter";
+  src: url("fonts/ArchitectsDaughter.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: block;
 }
 
 :root {
-  --ink: #1C1B19;
-  --white: #FFFDF8;
-  --orange: #EE7D2B;
-  --purple: #B6A2E8;
-  --yellow: #F4C740;
-  --paper: #FBF6EA;
+  --sheet: #17335F;
+  --sheet-deep: #102648;
+  --line: #F4F8FF;
+  --cyan: #7FD3FF;
+  --yellow: #FFD75E;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --btn: 46px;
-  color-scheme: light;
+  --btn: 44px;
+  --type: "Share Tech Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --hand: "Architects Daughter", ui-rounded, system-ui, sans-serif;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -24,7 +32,7 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: var(--paper);
+  background: var(--sheet);
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
@@ -38,8 +46,8 @@ body {
   position: fixed;
   inset: 0;
   height: 100dvh;
-  font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: var(--ink);
+  font-family: var(--type);
+  color: var(--line);
 }
 
 [hidden] { display: none !important; }
@@ -56,7 +64,7 @@ canvas#paper, canvas#ink, canvas#stage {
    where it was drawn. */
 #ink, #stage { top: var(--sat); height: calc(100dvh - var(--sat)); }
 #ink { pointer-events: none; visibility: hidden; }
-body.drawing #ink { pointer-events: auto; visibility: visible; }
+body.drawing #ink { pointer-events: auto; visibility: visible; cursor: crosshair; }
 #stage { visibility: hidden; }
 body.live #stage { visibility: visible; }
 
@@ -68,63 +76,56 @@ body.live #stage { visibility: visible; }
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ---- stickers: colour fill, 2px ink border, and a HARD ink copy nudged down-left.
-        Never a blur or a shadow. Pressing slides the face onto its backdrop. ---- */
+/* ---- buttons: drafting labels. A thin white frame with ticked corners; the one thing to
+        press next is filled yellow. ---- */
 
-.sticker, .pill {
+.btn {
   appearance: none;
-  border: 0;
   margin: 0;
-  padding: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  display: grid;
-  position: relative;
+  border: 1.5px solid var(--line);
+  border-radius: 2px;
+  background: rgba(16, 38, 72, 0.72);
+  color: var(--line);
+  font-family: var(--type);
+  font-size: 14px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  min-height: 44px;
   cursor: pointer;
   touch-action: manipulation;
-  --off: 4px;
-}
-.sticker:focus, .pill:focus { outline: none; }
-.sticker:focus-visible .sticker-face, .pill:focus-visible .sticker-face { outline: 2px solid var(--orange); outline-offset: 3px; }
-.sticker-back, .sticker-face { grid-area: 1 / 1; }
-.sticker-back { background: var(--ink); transform: translate(calc(var(--off) * -1), var(--off)); }
-.sticker-face {
   position: relative;
-  z-index: 1;
-  background: var(--fill, var(--white));
-  box-shadow: inset 0 0 0 2px var(--ink);
-  display: grid;
-  place-items: center;
-  transition: transform 180ms cubic-bezier(0.34, 1.45, 0.64, 1);
+  transition: transform 90ms ease, background 90ms ease;
 }
-.sticker:active > .sticker-face, .pill:active > .sticker-face {
-  transform: translate(calc(var(--off) * -0.75), calc(var(--off) * 0.75));
+.btn::before, .btn::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--cyan);
+  pointer-events: none;
 }
+.btn::before { top: -5px; left: -5px; border-right: 0; border-bottom: 0; }
+.btn::after { bottom: -5px; right: -5px; border-left: 0; border-top: 0; }
+.btn:active { transform: translateY(1px) scale(0.985); background: rgba(127, 211, 255, 0.22); }
+.btn:focus { outline: none; }
+.btn:focus-visible { outline: 2px solid var(--yellow); outline-offset: 4px; }
+.btn.primary { background: var(--yellow); border-color: var(--yellow); color: var(--sheet-deep); font-size: 16px; }
+.btn.primary:active { background: #ffe58f; }
+.btn.tool { width: var(--btn); height: var(--btn); min-height: 0; padding: 0; display: grid; place-items: center; }
+.btn.tool::before, .btn.tool::after { display: none; }
+.btn.tool svg { width: 52%; height: 52%; overflow: visible; }
+.btn.pen > i { display: block; width: 46%; height: 46%; border-radius: 50%; background: var(--c); }
+.btn.pen.sel { border-color: var(--yellow); box-shadow: 0 0 0 1.5px var(--yellow); }
 
-.sticker { width: var(--btn); height: var(--btn); }
-.sticker > .sticker-back, .sticker > .sticker-face { border-radius: 50%; }
-.sticker svg { width: 52%; height: 52%; overflow: visible; }
-.sticker.swatch > .sticker-face { background: var(--c); }
-.sticker.swatch.sel > .sticker-face { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 6px var(--white); }
-
-.pill > .sticker-back, .pill > .sticker-face { border-radius: 999px; }
-.pill > .sticker-face {
-  padding: 15px 26px;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  white-space: nowrap;
-}
-
-/* ---- toolbar ---- */
+/* ---- top of the sheet ---- */
 
 #toolbar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  padding: calc(var(--sat) + 10px) 14px 6px;
+  padding: calc(var(--sat) + 12px) 14px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -134,37 +135,35 @@ body.live #stage { visibility: visible; }
 }
 #toolbar > * { pointer-events: auto; }
 
-#ribbon { display: grid; transform: rotate(-1.5deg); --off: 3px; pointer-events: none; }
-#ribbon > .sticker-back, #ribbon > .sticker-face { border-radius: 8px; }
-#ribbon > .sticker-face {
-  background: var(--yellow);
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  white-space: nowrap;
-}
-body.live #ribbon { display: none; }
+#title { display: flex; align-items: baseline; gap: 12px; pointer-events: none; }
+#title-text { font-size: 15px; letter-spacing: 5px; border: 1.5px solid var(--line); padding: 4px 6px 4px 11px; }
+#title-sub { font-size: 11px; letter-spacing: 2px; color: var(--cyan); }
+body.live #title { display: none; }
 
-.row { width: 100%; max-width: 420px; display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.row { width: 100%; max-width: 420px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 #draw-row { display: none; }
 body.drawing #draw-row { display: flex; }
 
-#hint {
-  min-height: 30px;
-  max-width: 92vw;
-  font-family: "Gochi Hand", ui-rounded, system-ui, sans-serif;
-  font-size: 24px;
-  line-height: 1.15;
+#hint, .note {
+  font-family: var(--hand);
+  color: var(--cyan);
   text-align: center;
+  line-height: 1.2;
+}
+#hint {
+  min-height: 28px;
+  max-width: 92vw;
+  font-size: 21px;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(-4px) rotate(-1deg);
+  transform: translateY(-4px);
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
-#hint.show { opacity: 0.85; transform: translateY(0) rotate(-1deg); }
+#hint.show { opacity: 1; transform: none; }
+.note { margin: 0; font-size: 19px; opacity: 0.9; }
+#pad-note { font-size: 17px; white-space: nowrap; }
 
-/* ---- role screen ---- */
+/* ---- who are you ---- */
 
 #roles {
   position: fixed;
@@ -173,91 +172,58 @@ body.drawing #draw-row { display: flex; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 26px;
+  gap: 30px;
   z-index: 5;
 }
 body.role #roles { display: flex; }
-#roles .pill > .sticker-face { padding: 20px 30px; font-size: 18px; }
-#roles .pill:nth-child(1) { transform: rotate(-2deg); }
-#roles .pill:nth-child(2) { transform: rotate(1.5deg); }
-.note {
-  margin: 8px 0 0;
-  font-family: "Gochi Hand", ui-rounded, system-ui, sans-serif;
-  font-size: 22px;
-  line-height: 1.2;
-  text-align: center;
-  opacity: 0.7;
-}
+.btn.plate { width: min(78vw, 300px); padding: 20px 18px 22px; font-size: 19px; letter-spacing: 2.5px; text-align: left; }
+.btn.plate small { display: block; font-size: 11px; letter-spacing: 3px; color: var(--cyan); margin-bottom: 8px; }
 
-/* ---- the one big action button, under the figure's feet ---- */
+/* ---- the one action, under the figure's feet ---- */
 
 #action {
   position: fixed;
   left: 50%;
   bottom: calc(var(--sab) + 26px);
-  transform: translateX(-50%) rotate(-1.5deg);
+  transform: translateX(-50%);
   z-index: 12;
-  --fill: var(--yellow);
+  padding: 15px 28px;
+  white-space: nowrap;
 }
-#action > .sticker-face { padding: 16px 30px; font-size: 18px; }
+#action:active { transform: translateX(-50%) translateY(1px) scale(0.985); }
 
-/* ---- the spread deck: pick a card or write a word ---- */
+/* ---- the spectator's sheet: write a word or draw a card ---- */
 
-#picker {
+#pad {
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: var(--paper);
+  background: var(--sheet);
+  background-image:
+    linear-gradient(rgba(190, 220, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(190, 220, 255, 0.09) 1px, transparent 1px);
+  background-size: 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: calc(var(--sat) + 10px) 10px calc(var(--sab) + 10px);
-  gap: 10px;
-  animation: rise 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  padding: calc(var(--sat) + 16px) 14px calc(var(--sab) + 18px);
+  gap: 12px;
+  animation: rise 0.28s ease-out;
 }
-@keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-.tabs { display: flex; gap: 8px; }
-.tab {
-  appearance: none;
-  border: 0;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: var(--ink);
-  background: var(--white);
-  box-shadow: inset 0 0 0 2px var(--ink);
-  border-radius: 999px;
-  padding: 10px 16px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-.tab.on { background: var(--yellow); box-shadow: inset 0 0 0 2px var(--ink), -3px 3px 0 0 var(--ink); }
-#card-grid { flex: 1; width: 100%; max-width: 460px; min-height: 0; touch-action: manipulation; cursor: pointer; }
-#word-pane { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; width: 100%; padding-bottom: 20vh; }
-.slip {
-  display: block;
-  width: min(86vw, 360px);
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 2px var(--ink), -4px 4px 0 0 var(--ink);
-  transform: rotate(-1.5deg);
-  padding: 18px 14px 12px;
-}
-#word-input {
+@keyframes rise { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+#pad-canvas {
+  flex: 1;
   width: 100%;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--ink);
-  font-family: "Gochi Hand", ui-rounded, system-ui, sans-serif;
-  font-size: 36px;
-  text-align: center;
-  -webkit-user-select: text;
-  user-select: text;
-  touch-action: auto;
+  max-width: 520px;
+  min-height: 0;
+  border: 1.5px dashed rgba(244, 248, 255, 0.55);
+  border-radius: 2px;
+  background: rgba(16, 38, 72, 0.45);
+  touch-action: none;
+  cursor: crosshair;
 }
-#word-input::placeholder { color: var(--ink); opacity: 0.25; }
+#pad-row { max-width: 520px; }
+#pad-done { flex: 1; }
 
 /* ---- bits ---- */
 
@@ -267,21 +233,21 @@ body:not(.live) #corner { display: none; }
 #toast {
   position: fixed;
   left: 50%;
-  top: calc(var(--sat) + 120px);
+  top: calc(var(--sat) + 124px);
   z-index: 40;
-  transform: translateX(-50%) translateY(-6px) rotate(-1deg);
-  background: var(--white);
-  border-radius: 10px;
-  box-shadow: inset 0 0 0 2px var(--ink), -3px 3px 0 0 var(--ink);
-  padding: 9px 14px;
-  font-size: 14px;
-  font-weight: 700;
+  transform: translateX(-50%) translateY(-6px);
+  background: var(--sheet-deep);
+  border: 1.5px solid var(--yellow);
+  border-radius: 2px;
+  padding: 10px 14px;
+  font-size: 13px;
+  letter-spacing: 0.8px;
   text-align: center;
   max-width: 88vw;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0) rotate(-1deg); }
+#toast.show { opacity: 1; transform: translateX(-50%); }
 
 #meter { position: fixed; left: 8px; right: 8px; bottom: calc(var(--sab) + 4px); width: calc(100% - 16px); height: 70px; z-index: 50; pointer-events: none; opacity: 0.85; }

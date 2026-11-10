@@ -1,14 +1,16 @@
-// The conversation the two figures have. Strict turn-taking over a half-duplex transport:
-// every message is acknowledged, and an unacknowledged one is simply said again.
+// The conversation between the two phones. Strict turn-taking over a half-duplex transport:
+// every message is acknowledged, and an unacknowledged one is simply played again.
 //
 // A transport provides:
 //   start() → Promise
-//   transmit(frame, { voiceData }) → { startTime, endTime, symbolMs, tones }   (times: clock.js)
+//   transmit(frame, { stamp }) → { frame, startTime, endTime, symbols }      (times: clock.js)
 //   onFrame = (frame) => …      frame = { type, role, seq, payload, band, endTime }
+// With `stamp`, the transport overwrites payload[0] with the music's loop position at the
+// frame's end, which lets the listener lock its own music to the sender's.
 
 import { frameLength, SYMBOL_SECONDS } from '../audio/codec.js';
 import { now } from '../clock.js';
-import { SUITS } from '../reveal.js';
+import { SUITS } from '../faces.js';
 
 export const T = Object.freeze({ HELLO: 0, THROW: 1, RETURN: 2, ACK: 3 });
 export const ROLE = Object.freeze({ magician: 0, spectator: 1 });
@@ -52,8 +54,9 @@ export function decodeSelection(bytes) {
   return { kind: 'word', text };
 }
 
-const ACK_DELAY = 180;                                                // ms after a frame ends
-const ACK_WAIT = ACK_DELAY + frameLength(0) * SYMBOL_SECONDS * 1000 + 750;
+const ACK_DELAY = 150;                                                // ms after a frame ends
+// The answer starts on the far phone's next beat, so allow for that as well.
+const ACK_WAIT = ACK_DELAY + frameLength(0) * SYMBOL_SECONDS * 1000 + 950;
 export const MAX_ATTEMPTS = 4;
 const sleepUntil = (t) => new Promise((r) => setTimeout(r, Math.max(0, t - now())));
 
@@ -65,57 +68,46 @@ export class Link {
     this.handlers = new Map();
     this.pendingAck = null;         // { seq, resolve }
     this.lastHandled = null;
-    this.voiceData = false;         // sticky: the ultrasonic band isn't getting through
-    this.onTransmit = null;         // (info) → the figure "says" it
     this.busy = false;
     transport.onFrame = (f) => this.receive(f);
   }
 
   on(type, fn) { this.handlers.set(type, fn); }
 
-  /// Say `type` until the other figure answers. Resolves true when acknowledged, false if
+  /// Send `type` until the other phone answers. Resolves true when acknowledged, false if
   /// every attempt went unanswered. `onAttempt(info, attempt)` fires as each one starts.
-  async send(type, payload = [], onAttempt = null) {
+  async send(type, payload = [], onAttempt = null, { stamp = false } = {}) {
     if (this.busy) return false;
     this.busy = true;
     try {
       this.seq = (this.seq + 1) & 15;
       const frame = { type, role: this.role, seq: this.seq, payload };
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const withVoice = this.voiceData || attempt > 0;
-        const info = await this.transport.transmit(frame, { voiceData: withVoice });
-        this.onTransmit?.(info);
+        const info = await this.transport.transmit(frame, { stamp });
         onAttempt?.(info, attempt);
         const acked = await new Promise((resolve) => {
           this.pendingAck = { seq: frame.seq, resolve };
           sleepUntil(info.endTime + ACK_WAIT).then(() => resolve(false));
         });
         this.pendingAck = null;
-        if (acked) {
-          if (attempt > 0) this.voiceData = true;
-          return true;
-        }
+        if (acked) return true;
       }
       return false;
     } finally { this.busy = false; }
   }
 
   receive(f) {
-    if (f.role === this.role) return;                 // our own voice, heard by our own mic
+    if (f.role === this.role) return;                 // our own speaker, heard by our own mic
     if (f.type === T.ACK) {
       if (this.pendingAck && this.pendingAck.seq === f.seq) this.pendingAck.resolve(true);
       return;
     }
-    // If it only got through audibly, answer audibly too.
-    if (f.band === 'voice') this.voiceData = true;
-    sleepUntil(f.endTime + ACK_DELAY).then(async () => {
-      const info = await this.transport.transmit(
-        { type: T.ACK, role: this.role, seq: f.seq, payload: [] }, { voiceData: this.voiceData });
-      this.onTransmit?.(info);
-    });
     const key = `${f.type}:${f.seq}`;
-    if (key === this.lastHandled) return;             // a repeat of something we already did
+    const repeat = key === this.lastHandled;          // a replay of something we already did
     this.lastHandled = key;
-    this.handlers.get(f.type)?.(f.payload, f);
+    if (!repeat) this.handlers.get(f.type)?.(f.payload, f);
+    sleepUntil(f.endTime + ACK_DELAY).then(() => {
+      this.transport.transmit({ type: T.ACK, role: this.role, seq: f.seq, payload: [] }, {});
+    });
   }
 }

@@ -8,7 +8,7 @@ const CARD = { kind: 'card', value: 7, suit: 'hearts' };
 const BUILD = {
   wake: (c) => c.wake(), wave: (c) => c.wave(), cheer: (c) => c.cheer('deck'), produce: (c) => c.produce(),
   throwDeck: (c) => c.throwDeck(), catchDeck: (c) => c.catchDeck(), shuffle: (c) => c.shuffle(),
-  showPick: (c) => c.showPick(CARD), reveal: (c) => c.reveal(CARD), idleWait: (c) => c.idle('wait'),
+  showPick: (c) => c.showPick({ strokes: [], box: { minX: 0, minY: 0, w: 1, h: 1 } }), reveal: (c) => c.reveal(CARD), idleWait: (c) => c.idle('wait'),
 };
 export const SLOTS = Object.keys(BUILD).flatMap((n) => [`${n}@right`, `${n}@left`, `${n}@top`]);
 

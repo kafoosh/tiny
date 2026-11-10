@@ -99,11 +99,13 @@ export class Kit {
     return { x: this.edge === 'right' ? W + this.deckH : -this.deckH, y: hand.y - rise };
   }
 
-  /// Size + centre of the big presented card (or word slip).
+  /// Size + centre of the big presented face: a 'card', a typed 'word' strip, or the
+  /// spectator's handwritten 'note'.
   bigCard(kind) {
     const { width: W } = this.screen;
     let w, h;
-    if (kind === 'word') { w = Math.min(W * 0.86, 340); h = Math.min(w * 0.36, this.headroom); }
+    if (kind === 'word') { w = Math.min(W * 0.86, 340); h = Math.min(w * 0.3, this.headroom); }
+    else if (kind === 'note') { w = Math.min(W * 0.8, 320); h = Math.min(w * 0.55, this.headroom); }
     else { h = Math.min(this.headroom, 280, W * 0.62); w = h / 1.4; }
     return { w, h, center: { x: W / 2, y: this.topInset + 14 + h / 2 } };
   }

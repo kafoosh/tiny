@@ -15,7 +15,7 @@ export class ClipLibrary {
   catchDeck() { return catchDeck(this.kit); }
   fan() { return fan(this.kit); }
   shuffle() { return shuffle(this.kit); }
-  showPick(sel) { return showPick(this.kit, sel); }
+  showPick(writing) { return showPick(this.kit, writing); }
   reveal(sel) { return reveal(this.kit, sel); }
 }
 

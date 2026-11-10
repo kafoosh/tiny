@@ -2,7 +2,8 @@
 // fanned, shuffled.
 
 import { lerp, smooth, easeOut, easeIn, phase } from '../support.js';
-import { sparkles } from '../sketchInk.js';
+import { burst, flightPath } from '../pen.js';
+import { BP } from '../../palette.js';
 import { drawDeck, drawBack, drawFan, motionLines } from '../../cards.js';
 import { THROW_WINDUP, FLIGHT_OUT, FLIGHT_IN } from '../timing.js';
 import { deckInHand, heldDeck } from './basics.js';
@@ -28,7 +29,8 @@ export function produce(k) {
       const s = pop * (1 + 0.25 * Math.sin(phase(t, 0.5, 0.95) * Math.PI));
       drawDeck(ctx, d.center, k.deckW * s, k.deckH * s, d.angle, k);
       const g = Math.sin(phase(t, 0.6, 1.25) * Math.PI);
-      if (g > 0) sparkles(ctx, d.center, k.propScale * 0.5, g, k.ink, k.lw);
+      burst(ctx, d.center, k.propScale * 0.42, phase(t, 0.6, 1.25), BP.cyan, Math.max(1.5, k.lw * 0.5));
+      void g;
     },
   };
 }
@@ -99,14 +101,14 @@ export function catchDeck(k) {
     props(ctx, t, pose) {
       if (t >= FLIGHT_IN) {
         heldDeck(ctx, k, pose);
-        const g = Math.sin(phase(t, FLIGHT_IN, FLIGHT_IN + 0.4) * Math.PI);
-        if (g > 0) sparkles(ctx, deckInHand(k, pose).center, k.propScale * 0.45, g, k.ink, k.lw);
+        burst(ctx, deckInHand(k, pose).center, k.propScale * 0.4, phase(t, FLIGHT_IN, FLIGHT_IN + 0.45), BP.cyan, Math.max(1.5, k.lw * 0.5));
         return;
       }
       if (!clip.land) { const p = k.base(); clip.pose(FLIGHT_IN, p); clip.land = deckInHand(k, p); }
       const to = clip.land, from = k.edgePoint(to.center, k.propScale * 0.22);
       const u = phase(t, 0, FLIGHT_IN), e = easeOut(u) * 0.5 + u * 0.5;
-      const c = { x: lerp(from.x, to.center.x, e), y: lerp(from.y, to.center.y, e) - k.propScale * 0.10 * Math.sin(u * Math.PI) };
+      const c = { x: lerp(from.x, to.center.x, e), y: lerp(from.y, to.center.y, e) - k.propScale * 0.10 * Math.sin(e * Math.PI) };
+      flightPath(ctx, from, to.center, k.propScale * 0.10, e, BP.cyan, Math.max(1.2, k.lw * 0.4), 0.7);
       drawDeck(ctx, c, k.deckW, k.deckH, to.angle - k.sideSign * (1 - u) * 3.2, k);
     },
   };
