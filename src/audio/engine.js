@@ -33,6 +33,7 @@ export class AudioEngine {
     this.out.gain.value = 0.9;
     this.out.connect(ctx.destination);
     this.music = new Music(ctx, this.out);
+    this.speakingUntil = 0;   // context time our own current message ends
     const blip = ctx.createBufferSource();
     blip.buffer = ctx.createBuffer(1, 1, 22050);
     blip.connect(ctx.destination);
@@ -84,10 +85,10 @@ export class AudioEngine {
     src.start(at);
   }
 
-  /// Say a frame: its chimes start on the music's next 16th note. If `stamp` is set, the
+  /// Play a message, starting on the music's next 16th note. If `stamp` is set, the
   /// first payload byte is overwritten with the loop position at the frame's end, so the
   /// listener can lock its own music to ours. Returns the frame as sent and its timing.
-  speak(frame, symbolsOf, modulate, { stamp = false, ultra = true } = {}) {
+  speak(frame, symbolsOf, modulate, { stamp = false, ultra = true, chime = false } = {}) {
     const ctx = this.ctx, sr = ctx.sampleRate;
     const t0 = this.music.nextBeat(ctx.currentTime + 0.07);
     let sent = frame;
@@ -96,8 +97,10 @@ export class AudioEngine {
       sent = { ...frame, payload: [this.music.positionAt(t0) + count & 127, ...frame.payload.slice(1)] };
     }
     const syms = symbolsOf(sent);
-    const { pcm, lead } = modulate({ ultra: ultra ? syms : null, chime: syms }, sr);
+    // Ultrasonic only unless the chimes are asked for (or are all this phone can do).
+    const { pcm, lead } = modulate({ ultra: ultra ? syms : null, chime: chime || !ultra ? syms : null }, sr);
     this.play(pcm, t0 - lead / sr);
+    this.speakingUntil = t0 + pcm.length / sr;
     const startTime = this.toEpoch(t0) + this.outputLatency;
     return { frame: sent, startTime, endTime: startTime + syms.length * (1000 * pcmSymbol(sr, pcm, lead, syms.length)), symbols: syms };
   }

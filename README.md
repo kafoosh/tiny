@@ -20,8 +20,8 @@ still works.
    as one piece.
 3. Lay the phones side by side, magician's on the left. (The arrow button in the drawing
    toolbar changes which edge the other phone is past: right, left, or top-to-top.)
-4. Magician taps their figure. The tune's chimes sparkle, the other figure waves, the
-   spectator's phone joins the tune in time, and a deck appears.
+4. Magician taps their figure. The other figure waves, the spectator's phone joins the tune
+   in time, and a deck appears.
 5. **THROW**. The deck flies across. The spectator writes a word or draws a card (a value
    and a suit, like 7♥), taps **INTO THE DECK**, watches it get shuffled away, and taps
    **THROW IT BACK**.
@@ -38,15 +38,18 @@ shown to them, so a misread only shows up at the reveal. See "Not yet proven" be
 
 ## How it works
 
-**The sound.** The tune is cover for a data link.
+**The sound.** The tune is cover for a data link, and normally the link makes no sound.
 
-- A soft four-bar loop plays under everything. It is kept low and filtered so it stays out
-  of the way of the data.
+- A soft four-bar loop plays: a low bed, a glockenspiel line, and a quick sparkling fill at
+  the end of each loop.
 - Each message is a run of 75 ms symbols (a 32nd note at the tune's tempo), four bits each,
-  sent two ways at once: as one of 16 tones at **17.6-19.2 kHz**, which most adults can't
-  hear, and as a two-note **chime chord** in the tune's own pentatonic scale, which sounds
-  like a glockenspiel flourish on the beat. A phone that can't do ultrasound still gets it
-  from the chimes.
+  sent as one of 16 tones at **17.6-19.2 kHz**, which most adults can't hear. Nothing
+  audible happens when the phones talk; the tune just carries on.
+- If a phone turns out not to hear ultrasound (no answer, or an answer saying so), the
+  message is repeated with an audible form as well: a run of two-note glockenspiel chords
+  in the tune's scale. That is the same instrument, register and rhythm as the tune's own
+  fill, so it sounds like another fill. Both phones then stay in that mode, and the
+  glockenspiel line drops out to leave those notes clear.
 - Messages carry a type, a sequence number and a CRC-16, and each is acknowledged. A card
   is one byte; a word is up to 16 characters at 5 bits each.
 - Both phones know the instant a message ends, so the throw is released, and the catch
@@ -101,7 +104,7 @@ air (you still hear the tune and the chimes).
 
 Other URL switches: `?debug=1` shows live per-tone levels (blue = ultrasonic, yellow =
 chimes); `?edge=left|right|top` sets the layout; `?link=loopback&drop=1` simulates a lost
-message.
+message and `&noultra=1` a phone that can't hear ultrasound.
 
 ```bash
 npm test

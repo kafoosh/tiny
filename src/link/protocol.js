@@ -3,9 +3,10 @@
 //
 // A transport provides:
 //   start() → Promise
-//   transmit(frame, { stamp }) → { frame, startTime, endTime, symbols }      (times: clock.js)
+//   transmit(frame, { stamp, chime }) → { frame, startTime, endTime, symbols }   (times: clock.js)
 //   onFrame = (frame) => …      frame = { type, role, seq, payload, band, endTime }
-// With `stamp`, the transport overwrites payload[0] with the music's loop position at the
+// A message is normally ultrasonic only: silent. `chime` adds its audible form, for a phone
+// that turns out not to hear ultrasound. With `stamp`, the transport overwrites payload[0] with the music's loop position at the
 // frame's end, which lets the listener lock its own music to the sender's.
 
 import { frameLength, SYMBOL_SECONDS } from '../audio/codec.js';
@@ -69,13 +70,22 @@ export class Link {
     this.pendingAck = null;         // { seq, resolve }
     this.lastHandled = null;
     this.busy = false;
+    this.chimes = false;            // sticky: ultrasound isn't getting through; play it audibly
+    this.onChimes = null;           // () → called once when that is discovered
     transport.onFrame = (f) => this.receive(f);
   }
 
   on(type, fn) { this.handlers.set(type, fn); }
 
+  needChimes() {
+    if (this.chimes) return;
+    this.chimes = true;
+    this.onChimes?.();
+  }
+
   /// Send `type` until the other phone answers. Resolves true when acknowledged, false if
   /// every attempt went unanswered. `onAttempt(info, attempt)` fires as each one starts.
+  /// The first attempt is silent (ultrasonic); a repeat adds the chimes.
   async send(type, payload = [], onAttempt = null, { stamp = false } = {}) {
     if (this.busy) return false;
     this.busy = true;
@@ -83,7 +93,7 @@ export class Link {
       this.seq = (this.seq + 1) & 15;
       const frame = { type, role: this.role, seq: this.seq, payload };
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const info = await this.transport.transmit(frame, { stamp });
+        const info = await this.transport.transmit(frame, { stamp, chime: this.chimes || attempt > 0 });
         onAttempt?.(info, attempt);
         const acked = await new Promise((resolve) => {
           this.pendingAck = { seq: frame.seq, resolve };
@@ -99,15 +109,21 @@ export class Link {
   receive(f) {
     if (f.role === this.role) return;                 // our own speaker, heard by our own mic
     if (f.type === T.ACK) {
+      // The answer says whether our ultrasound was what got through.
+      if (f.payload[0] === 0 || f.band === 'chime') this.needChimes();
       if (this.pendingAck && this.pendingAck.seq === f.seq) this.pendingAck.resolve(true);
       return;
     }
     const key = `${f.type}:${f.seq}`;
     const repeat = key === this.lastHandled;          // a replay of something we already did
     this.lastHandled = key;
+    // Heard only in its audible form — or heard again, so our silent answer didn't land:
+    // from now on, answer audibly.
+    if (f.band === 'chime' || repeat) this.needChimes();
     if (!repeat) this.handlers.get(f.type)?.(f.payload, f);
     sleepUntil(f.endTime + ACK_DELAY).then(() => {
-      this.transport.transmit({ type: T.ACK, role: this.role, seq: f.seq, payload: [] }, {});
+      this.transport.transmit({ type: T.ACK, role: this.role, seq: f.seq, payload: [f.band === 'chime' ? 0 : 1] },
+        { chime: this.chimes });
     });
   }
 }

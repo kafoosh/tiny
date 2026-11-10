@@ -55,6 +55,8 @@ export class AudioTransport {
     src.connect(node);
     node.connect(mute);
     this.node = node; this.src = src;
+    // The tune's fill keeps out of the way while a message is going out or coming in.
+    this.engine.music.busy = () => ctx.currentTime < this.engine.speakingUntil || this.demod.candidates.length > 0;
   }
 
   newDemod() {

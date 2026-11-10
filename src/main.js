@@ -4,7 +4,7 @@
 // screen and the other catches it; the spectator writes a word or draws a card by hand, it
 // is shuffled away and thrown back, and the magician's figure finds it and types it out.
 //
-// How: the sparkle of chimes over the tune is a data link (src/audio), and the handwriting
+// How: the phones exchange data ultrasonically under the tune (src/audio), and the handwriting
 // is read on the spectator's phone (src/hand). Nothing touches the network after load.
 
 import { BP, PENS, FONT_TYPE, FONT_HAND } from './palette.js';
@@ -253,6 +253,8 @@ async function done() {
     }
     transport = t;
     link = new Link(transport, ROLE[app.role]);
+    // If data has to be audible after all, the glockenspiel line makes room for it.
+    link.onChimes = () => { if (engine.ready) engine.music.lead = false; };
     link.on(T.HELLO, onHello);
     link.on(T.THROW, onThrow);
     link.on(T.RETURN, onReturn);
@@ -363,7 +365,7 @@ function callAgain() {
 }
 
 /// Send `type`; on the first attempt the figure also winds up and throws, released on the beat
-/// just after the last chime.
+/// just after the message ends.
 function sendWithThrow(type, payload, stamp = false) {
   let thrown = false;
   return link.send(type, payload, (info) => {

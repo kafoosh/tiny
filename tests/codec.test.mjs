@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Demodulator, modulate, frameSymbols, crc16, frameLength, geometry,
   MAX_PAYLOAD, ULTRA, CHIME_LOW, CHIME_HIGH, SYMBOL_SECONDS } from '../src/audio/codec.js';
-import { eventsAt, STEP, LOOP } from '../src/audio/music.js';
+import { eventsAt, leadAt, fillAt, FILL_START, STEP, LOOP } from '../src/audio/music.js';
 
 function rng(seed) {
   let s = seed >>> 0;
@@ -162,6 +162,24 @@ test('noise, music and silence never produce a frame', () => {
   for (let i = 0; i < music.length; i++) music[i] += 0.002 * gauss(r);
   assert.equal(receive(music, sr).length, 0);
   assert.equal(receive(new Float32Array(sr * 3), sr).length, 0);
+});
+
+test('fills in the tune use the same notes as the data but are never mistaken for a message', () => {
+  const sr = 48000;
+  let top = 0, frames = 0;
+  for (let s = 0; s < LOOP; s++) { const l = leadAt(s); if (l) { top = Math.max(top, l.f); assert.ok(s + l.len <= FILL_START, 'the lead rests under the fill'); } }
+  assert.ok(top < CHIME_LOW[0] - 100, 'the lead line stays below the chime notes');
+  for (let n = 0; n < 40; n++) {
+    const fill = [];
+    for (let s = FILL_START; s < LOOP; s++) fill.push(fillAt(s, n));
+    assert.ok(fill.filter((v) => v >= 0).length >= 8, 'a fill is mostly notes');
+    assert.ok(!fill.join(',').includes('0,15,5,10'), 'never the preamble');
+    // Rendered as sound (rests as silence), a fill decodes to nothing.
+    const pcm = new Float32Array(sr * 2);
+    fill.forEach((v, i) => { if (v >= 0) { const one = modulate({ chime: [v] }, sr).pcm; pcm.set(one.subarray(0, Math.min(one.length, 3600)), 9600 + i * 3600); } });
+    frames += receive(channel(pcm, sr, { seed: n }), sr).length;
+  }
+  assert.equal(frames, 0);
 });
 
 test('two frames back to back are both received, once each', () => {
