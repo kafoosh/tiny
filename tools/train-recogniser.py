@@ -1,3 +1,5 @@
+# Run from a directory containing EMNIST's gzip/ folder (emnist-balanced-*): python3 train-recogniser.py
+# Writes model-data.js, to be copied to src/hand/model-data.js. Needs torch, numpy, pillow.
 # Trains the glyph recogniser shipped in src/hand/model-data.js.
 # Classes: EMNIST "balanced" (0-9, A-Z, a b d e f g h n q r t = 47) + 4 synthetic card suits.
 import gzip, numpy as np, torch, torch.nn as nn, torch.nn.functional as F, math, json, base64, sys, time
